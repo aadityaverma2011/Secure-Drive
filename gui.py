@@ -1,21 +1,25 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 import subprocess
 import os
 import shutil
 import io
 import logging
 from PIL import Image
+import hashlib
+import random
 from options import (
     prompt_password, unlock_partition, mount_partition, unmount_partition, 
-    list_files, move_file, open_file, change_password, encrypt_file, decrypt_file, pre_checks
+    list_files, move_file, open_file, change_password, encrypt_file, decrypt_file, pre_checks,
+    derive_key
 )
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Define the mount point
+# Define the mount points
 MOUNT_POINT = "/mnt/private_partition"
+SDA1_MOUNT_POINT = "/mnt/sda1"
 
 class PartitionManagerGUI:
     def __init__(self, root):
@@ -85,13 +89,21 @@ class PartitionManagerGUI:
 
             file_path = filedialog.askopenfilename(title="Select File to Encrypt and Move")
             if file_path:
+                password = simpledialog.askstring("Encryption Password", "Enter the encryption password for this file:", show="*")
+                confirm_password = simpledialog.askstring("Encryption Password", "Re-enter the encryption password:", show="*")
+                if password != confirm_password:
+                    messagebox.showerror("Error", "Passwords do not match.")
+                    return
+
                 destination = os.path.join(MOUNT_POINT, "." + os.path.basename(file_path) + ".enc")
-                encrypted_file = encrypt_file(file_path, self.password)
+                encrypted_file = encrypt_file(file_path, password)
                 shutil.move(encrypted_file, destination)
                 messagebox.showinfo("Success", f"File '{os.path.basename(file_path)}' encrypted and moved.")
         except Exception as e:
             logging.error(f"Failed to move and encrypt file: {e}")
             messagebox.showerror("Error", f"Failed to move and encrypt file: {e}")
+
+
 
     def open_and_decrypt_file(self):
         try:
@@ -104,10 +116,14 @@ class PartitionManagerGUI:
             
             if file_path:
                 if file_path.endswith(".enc"):
-                    decrypted_data = decrypt_file(file_path, self.password)
-                    with Image.open(io.BytesIO(decrypted_data)) as img:
-                        img.show()
-                    messagebox.showinfo("Success", "File decrypted and opened successfully!")
+                    password = simpledialog.askstring("Decryption Password", "Enter the decryption password:", show="*")
+                    decrypted_data = decrypt_file(file_path, password)
+                    if decrypted_data:
+                        with Image.open(io.BytesIO(decrypted_data)) as img:
+                            img.show()
+                        messagebox.showinfo("Success", "File decrypted and opened successfully!")
+                    else:
+                        messagebox.showerror("Error", "Failed to decrypt file. Incorrect password or corrupt file.")
                 else:
                     messagebox.showerror("Error", "The selected file is not encrypted.")
         except Exception as e:
@@ -130,7 +146,6 @@ class PartitionManagerGUI:
         except Exception as e:
             logging.error(f"Failed to unmount partition during exit: {e}")
             messagebox.showerror("Error", f"Failed to unmount partition during exit: {e}")
-
 
 if __name__ == "__main__":
     root = tk.Tk()

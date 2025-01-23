@@ -3,6 +3,7 @@ import subprocess
 import sys
 import shutil
 import io
+import logging
 from PIL import Image
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
@@ -44,7 +45,7 @@ def prompt_password():
 
 def derive_key(password):
     """Derive a cryptographic key from a password using PBKDF2."""
-    salt = b'some_salt'  # Should be stored securely and uniquely for each user/system
+    salt = b'some_salt'  # Fixed salt value for consistency in encryption/decryption
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -243,9 +244,11 @@ def main():
             if choice == "1":
                 list_files()
             elif choice == "2":
-                move_file(password)
+                file_password = input("Enter password to encrypt the file: ").strip()
+                move_file(file_password)
             elif choice == "3":
-                open_file(password)
+                file_password = input("Enter password to decrypt the file: ").strip()
+                open_file(file_password)
             elif choice == "4":
                 change_password()
             elif choice == "5":
@@ -255,8 +258,6 @@ def main():
                 print("Invalid choice. Try again.")
     except KeyboardInterrupt:
         print("\nCaught termination signal.")
-
-    # Ensure the partition is unmounted when exiting
     finally:
         if os.path.ismount(MOUNT_POINT):
             unmount_partition()
