@@ -8,9 +8,10 @@ MAX_SIZE_GB = 35
 def run_command(command):
     """Run a shell command and handle errors."""
     try:
-        subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(result.stdout.decode())
     except subprocess.CalledProcessError as e:
-        print(f"Error executing command: {e}")
+        print(f"Error executing command: {e}\nOutput: {e.stderr.decode().strip()}")
         sys.exit(1)
 
 def get_drive_size(drive):
@@ -25,10 +26,22 @@ def get_drive_size(drive):
         sys.exit(1)
 
 def encrypt_partition(drive):
-    """Encrypt the specified drive using LUKS."""
+    """Encrypt the specified drive using LUKS and format it to XFS."""
     print(f"Encrypting {drive} with LUKS...")
-    run_command(f"echo -n {PASSWORD} | sudo cryptsetup luksFormat {drive}")
+    run_command(f"echo {PASSWORD} | sudo cryptsetup luksFormat --batch-mode -y {drive}")
     print(f"{drive} encrypted successfully!")
+
+    # Open the encrypted drive
+    run_command(f"echo {PASSWORD} | sudo cryptsetup open {drive} encrypted_drive")
+
+    # Format the encrypted drive to XFS
+    print(f"Formatting the encrypted drive to XFS...")
+    run_command(f"sudo mkfs.xfs /dev/mapper/encrypted_drive")
+    print(f"Encrypted drive formatted to XFS successfully!")
+
+    # Close the encrypted drive
+    run_command(f"sudo cryptsetup close encrypted_drive")
+    print(f"Encrypted drive closed successfully!")
 
 def main():
     print("Welcome to LockDrive!")
@@ -52,7 +65,7 @@ def main():
         sys.exit(0)
 
     encrypt_partition(drive)
-    print("Drive encryption complete.")
+    print("Drive encryption and formatting complete.")
 
 if __name__ == "__main__":
     main()
