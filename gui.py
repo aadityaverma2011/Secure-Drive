@@ -45,11 +45,8 @@ class PartitionManagerGUI:
         self.change_password_btn = tk.Button(self.frame, text="Change Password", command=self.change_password, width=20)
         self.change_password_btn.grid(row=4, column=0, pady=10)
 
-        self.unmount_btn = tk.Button(self.frame, text="Unmount Partition", command=self.unmount_partition, width=20)
-        self.unmount_btn.grid(row=5, column=0, pady=10)
-
         self.exit_btn = tk.Button(self.frame, text="Exit", command=self.exit_app, width=20)
-        self.exit_btn.grid(row=6, column=0, pady=10)
+        self.exit_btn.grid(row=5, column=0, pady=10)
 
     def unlock_partition(self):
         self.password = tk.simpledialog.askstring("Password", "Enter the encryption password:", show="*")
@@ -62,19 +59,6 @@ class PartitionManagerGUI:
             except Exception as e:
                 logging.error(f"Failed to unlock and mount partition: {e}")
                 messagebox.showerror("Error", f"Failed to unlock and mount partition: {e}")
-
-    def unmount_partition(self):
-        try:
-            # Ensure partition is mounted before attempting to unmount
-            if not os.path.ismount(MOUNT_POINT):
-                messagebox.showwarning("Warning", "Partition is not mounted.")
-                return
-
-            unmount_partition()
-            messagebox.showinfo("Success", "Partition unmounted successfully!")
-        except Exception as e:
-            logging.error(f"Failed to unmount partition: {e}")
-            messagebox.showerror("Error", f"Failed to unmount partition: {e}")
 
     def list_files(self):
         try:
