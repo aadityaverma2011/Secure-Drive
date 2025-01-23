@@ -14,6 +14,25 @@ MOUNT_POINT = "/mnt/private_partition"
 PARTITION = "/dev/sda2"  # Adjust this based on your setup
 CRYPT_NAME = "encrypted_partition"  # Name for unlocked partition
 
+def pre_checks():
+    """Run pre-checks to ensure the partition is not already mounted and unlocked."""
+    try:
+        if os.path.ismount(MOUNT_POINT):
+            print(f"Partition is already mounted at {MOUNT_POINT}. Unmounting...")
+            subprocess.run(["sudo", "umount", MOUNT_POINT], check=True)
+            print("Unmounted the partition successfully.")
+        
+        luks_status = subprocess.run(
+            ["sudo", "cryptsetup", "status", CRYPT_NAME],
+            capture_output=True, text=True
+        )
+        if "is active" in luks_status.stdout:
+            print(f"LUKS partition '{CRYPT_NAME}' is already active. Closing...")
+            subprocess.run(["sudo", "cryptsetup", "luksClose", CRYPT_NAME], check=True)
+            print("Closed the LUKS partition successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Pre-checks failed: {e}")
+        sys.exit(1)
 
 def prompt_password():
     """Prompt the user to input the encryption password."""
@@ -22,7 +41,6 @@ def prompt_password():
         print("Password cannot be empty.")
         sys.exit(1)
     return password
-
 
 def derive_key(password):
     """Derive a cryptographic key from a password using PBKDF2."""
@@ -35,7 +53,6 @@ def derive_key(password):
         backend=default_backend()
     )
     return kdf.derive(password.encode())
-
 
 def unlock_partition(password):
     """Unlock the LUKS-encrypted partition."""
@@ -51,7 +68,6 @@ def unlock_partition(password):
         else:
             print(f"Failed to unlock partition: {e}")
             sys.exit(1)
-
 
 def mount_partition():
     """Mount the unlocked partition with XFS filesystem detection."""
@@ -69,7 +85,6 @@ def mount_partition():
         print("Mounting failed. The partition might not contain a valid XFS filesystem.")
         sys.exit(1)
 
-
 def unmount_partition():
     """Forcefully unmount the partition and clean up."""
     try:
@@ -78,7 +93,6 @@ def unmount_partition():
         print("Partition unmounted successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to unmount the partition: {e}")
-
 
 def encrypt_file(file_path, password):
     """Encrypt a file using AES."""
@@ -101,7 +115,6 @@ def encrypt_file(file_path, password):
 
     return encrypted_file_path
 
-
 def decrypt_file(file_path, password):
     """Decrypt a file using AES."""
     key = derive_key(password)
@@ -122,8 +135,6 @@ def decrypt_file(file_path, password):
 
     return unpadded_data
 
-
-
 def list_files():
     """List files in the mounted partition."""
     files = os.listdir(MOUNT_POINT)
@@ -133,7 +144,6 @@ def list_files():
             print(f" - {file}")
     else:
         print("No files found in the partition.")
-
 
 def move_file(password):
     """Move and encrypt a file into the partition."""
@@ -159,7 +169,6 @@ def move_file(password):
             print("File not found in the current directory.")
     else:
         print("No files found in the current directory.")
-
 
 def open_file(password):
     """Decrypt and open a file from the partition."""
@@ -189,7 +198,6 @@ def open_file(password):
     else:
         print("No files found in the partition.")
 
-
 def change_password():
     """Change the LUKS encryption password."""
     print("\nChanging LUKS encryption password...")
@@ -216,11 +224,11 @@ def change_password():
         print(f"Failed to change the password: {e}")
         return
 
-
 def main():
+    pre_checks()  # Run pre-checks
     password = prompt_password()
     unlock_partition(password)
-    mount_partition()
+    mount_partition()  # Mount automatically after unlocking
 
     try:
         while True:
@@ -242,14 +250,16 @@ def main():
                 change_password()
             elif choice == "5":
                 print("Exiting...")
-                unmount_partition()
                 break
             else:
                 print("Invalid choice. Try again.")
     except KeyboardInterrupt:
-        print("\nCaught termination signal. Unmounting before exit...")
-        unmount_partition()
+        print("\nCaught termination signal.")
 
+    # Ensure the partition is unmounted when exiting
+    finally:
+        if os.path.ismount(MOUNT_POINT):
+            unmount_partition()
 
 if __name__ == "__main__":
     main()

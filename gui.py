@@ -8,7 +8,7 @@ import logging
 from PIL import Image
 from options import (
     prompt_password, unlock_partition, mount_partition, unmount_partition, 
-    list_files, move_file, open_file, change_password, encrypt_file, decrypt_file
+    list_files, move_file, open_file, change_password, encrypt_file, decrypt_file, pre_checks
 )
 
 # Set up logging
@@ -33,49 +33,35 @@ class PartitionManagerGUI:
         self.unlock_btn = tk.Button(self.frame, text="Unlock Partition", command=self.unlock_partition, width=20)
         self.unlock_btn.grid(row=0, column=0, pady=10)
 
-        self.mount_btn = tk.Button(self.frame, text="Mount Partition", command=self.mount_partition, width=20)
-        self.mount_btn.grid(row=1, column=0, pady=10)
-
         self.list_files_btn = tk.Button(self.frame, text="List Files", command=self.list_files, width=20)
-        self.list_files_btn.grid(row=2, column=0, pady=10)
+        self.list_files_btn.grid(row=1, column=0, pady=10)
 
         self.move_file_btn = tk.Button(self.frame, text="Move and Encrypt File", command=self.move_and_encrypt_file, width=20)
-        self.move_file_btn.grid(row=3, column=0, pady=10)
+        self.move_file_btn.grid(row=2, column=0, pady=10)
 
         self.open_file_btn = tk.Button(self.frame, text="Open and Decrypt File", command=self.open_and_decrypt_file, width=20)
-        self.open_file_btn.grid(row=4, column=0, pady=10)
+        self.open_file_btn.grid(row=3, column=0, pady=10)
 
         self.change_password_btn = tk.Button(self.frame, text="Change Password", command=self.change_password, width=20)
-        self.change_password_btn.grid(row=5, column=0, pady=10)
+        self.change_password_btn.grid(row=4, column=0, pady=10)
 
         self.unmount_btn = tk.Button(self.frame, text="Unmount Partition", command=self.unmount_partition, width=20)
-        self.unmount_btn.grid(row=6, column=0, pady=10)
+        self.unmount_btn.grid(row=5, column=0, pady=10)
 
-        self.exit_btn = tk.Button(self.frame, text="Exit", command=self.root.quit, width=20)
-        self.exit_btn.grid(row=7, column=0, pady=10)
+        self.exit_btn = tk.Button(self.frame, text="Exit", command=self.exit_app, width=20)
+        self.exit_btn.grid(row=6, column=0, pady=10)
 
     def unlock_partition(self):
         self.password = tk.simpledialog.askstring("Password", "Enter the encryption password:", show="*")
         if self.password:
             try:
+                pre_checks()  # Run pre-checks
                 unlock_partition(self.password)
-                messagebox.showinfo("Success", "Partition unlocked successfully!")
+                mount_partition()  # Mount automatically after unlocking
+                messagebox.showinfo("Success", "Partition unlocked and mounted successfully!")
             except Exception as e:
-                logging.error(f"Failed to unlock partition: {e}")
-                messagebox.showerror("Error", f"Failed to unlock partition: {e}")
-
-    def mount_partition(self):
-        try:
-            # Ensure partition is not already mounted
-            if os.path.ismount(MOUNT_POINT):
-                messagebox.showwarning("Warning", f"Partition is already mounted at {MOUNT_POINT}")
-                return
-            
-            mount_partition()
-            messagebox.showinfo("Success", f"Partition mounted at {MOUNT_POINT}")
-        except Exception as e:
-            logging.error(f"Failed to mount partition: {e}")
-            messagebox.showerror("Error", f"Failed to mount partition: {e}")
+                logging.error(f"Failed to unlock and mount partition: {e}")
+                messagebox.showerror("Error", f"Failed to unlock and mount partition: {e}")
 
     def unmount_partition(self):
         try:
@@ -150,6 +136,16 @@ class PartitionManagerGUI:
         except Exception as e:
             logging.error(f"Failed to change password: {e}")
             messagebox.showerror("Error", f"Failed to change password: {e}")
+
+    def exit_app(self):
+        """Unmount partition and exit the application."""
+        try:
+            if os.path.ismount(MOUNT_POINT):
+                unmount_partition()
+            self.root.quit()
+        except Exception as e:
+            logging.error(f"Failed to unmount partition during exit: {e}")
+            messagebox.showerror("Error", f"Failed to unmount partition during exit: {e}")
 
 
 if __name__ == "__main__":
